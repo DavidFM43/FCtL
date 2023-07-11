@@ -20,9 +20,9 @@ args = Options().parse()
 dataset = args.dataset
 if dataset == 1:
     args.n_class = 7 
-    args.data_path = "./data/"
-    args.model_path = "./saved_models/"
-    args.log_path = "./runs/"
+    args.data_path = "/home/azureuser/cloudfiles/code/Users/davidfelipemr/FCtL/data/"
+    args.model_path = "/home/azureuser/cloudfiles/code/Users/davidfelipemr/FCtL/saved_models/"
+    args.log_path = "/home/azureuser/cloudfiles/code/Users/davidfelipemr/FCtL/runs/"
 else:
     pass
 n_class = args.n_class 
@@ -39,7 +39,7 @@ print("data_path:",data_path , "model_path:",model_path, "log_path",log_path)
 task_name = args.task_name
 print("task_name:",task_name)
 
-mode = args.mode
+mode = 4 # args.mode
 train = args.train
 val = args.val
 print("mode:",mode, "train:",train, "val:",val)
@@ -47,16 +47,16 @@ print("mode:",mode, "train:",train, "val:",val)
 ###################################
 print("preparing datasets and dataloaders......")
 batch_size = args.batch_size 
-num_worker = 0
+num_worker = os.cpu_count() # args.num_worker
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 ids_train = [image_name for image_name in os.listdir(os.path.join(data_path, "train", "Sat")) if is_image_file(image_name)]
-ids_test = [image_name for image_name in os.listdir(os.path.join(data_path, "offical_crossvali", "Sat")) if is_image_file(image_name)]
+ids_test = [image_name for image_name in os.listdir(os.path.join(data_path, "test", "Sat")) if is_image_file(image_name)]
 ids_val = [image_name for image_name in os.listdir(os.path.join(data_path, "crossvali", "Sat")) if is_image_file(image_name)]
 
 dataset_train = DeepGlobe(dataset, os.path.join(data_path, "train"), ids_train, label=True, transform=True)
 dataloader_train = torch.utils.data.DataLoader(dataset=dataset_train, batch_size=batch_size, num_workers=num_worker, collate_fn=collate, shuffle=True, pin_memory=True)
-dataset_test = DeepGlobe(dataset, os.path.join(data_path, "offical_crossvali"), ids_test, label=False)
+dataset_test = DeepGlobe(dataset, os.path.join(data_path, "test"), ids_test, label=False)
 dataloader_test = torch.utils.data.DataLoader(dataset=dataset_test, batch_size=batch_size, num_workers=num_worker, collate_fn=collate_test, shuffle=False, pin_memory=True)
 dataset_val = DeepGlobe(dataset, os.path.join(data_path, "crossvali"), ids_val, label=True)
 dataloader_val = torch.utils.data.DataLoader(dataset=dataset_val, batch_size=batch_size, num_workers=num_worker, collate_fn=collate, shuffle=False, pin_memory=True)
@@ -72,9 +72,9 @@ sub_batch_size = args.sub_batch_size
 ###################################
 print("creating models......")
 
-pre_path = os.path.join(model_path, args.pre_path)
-c_path = os.path.join(model_path, args.c_path)
-glo_path = os.path.join(model_path, args.glo_path)
+pre_path = os.path.join(model_path, "all.epoch.pth") # args.pre_path)
+c_path = os.path.join(model_path, "medium.epoch.pth") # args.c_path)
+glo_path = os.path.join(model_path, "global.epoch.pth") #args.glo_path)
 print("pre_path:", pre_path, "c_path:", c_path, "glo_path:", glo_path)
 model, c_fixed, global_fixed = create_model_load_weights(n_class, pre_path, glo_path, c_path, mode)
 
@@ -98,6 +98,7 @@ if val:
 trainer = Trainer(criterion, optimizer, n_class, size_p, size_g, sub_batch_size, mode, dataset, context)
 evaluator = Evaluator(n_class, size_p, size_g, sub_batch_size, mode, train, dataset, context)
 
+prediction_path = "/home/azureuser/cloudfiles/code/Users/davidfelipemr/FCtL/prediction/"
 best_pred = 0.0
 print("start training......")
 for epoch in range(start, start + lens):
@@ -124,7 +125,7 @@ np.mean(np.nan_to_num(score_train["iou"][1:]))))
         cnt = 1
     if (epoch+1) % cnt == 0:
         torch.save(model.state_dict(), model_path + task_name + ".epoch" + str(epoch) + ".pth")
-        
+
     if (epoch+1) % 5 == 0:
         with torch.no_grad():
             print("evaling...")
@@ -160,7 +161,7 @@ np.mean(np.nan_to_num(score_train["iou"][1:]))))
             f_log.flush()
             writer.add_scalars('IoU', {'train iou': np.mean(np.nan_to_num(score_train["iou"][1:])), 'validation iou': np.mean(np.nan_to_num(score_val["iou"][1:]))}, epoch)
 if val: f_log.close()
-    
+
 if not train:
     with torch.no_grad():
         print("testing...")
@@ -169,7 +170,10 @@ if not train:
         for i_batch, sample_batched in enumerate(tbar):
             predictions = evaluator.eval_test(sample_batched, model, c_fixed, global_fixed)
 
-            images = sample_batched['image']        
-            if not os.path.isdir("./prediction/"): os.mkdir("./prediction/")
+            images = sample_batched['image']
+            if not os.path.isdir(prediction_path):
+                os.mkdir(prediction_path)
             for i in range(len(images)):
-                transforms.functional.to_pil_image(classToRGB(dataset, predictions[i])).save("./prediction/" + sample_batched['id'][i] + "_mask.png")
+                transforms.functional.to_pil_image(classToRGB(dataset, predictions[i])).save(
+                    prediction_path + sample_batched["id"][i] + "_mask.png"
+                )

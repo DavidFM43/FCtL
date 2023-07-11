@@ -13,6 +13,7 @@ from torchvision import transforms
 from utils.metrics import ConfusionMatrix
 from PIL import Image, ImageOps
 from models.fcn import FCN8, MiniFCN8
+from tqdm import tqdm
 
 torch.backends.cudnn.deterministic = True
 
@@ -163,7 +164,7 @@ def create_model_load_weights(n_class, pre_path=None, glo_path=None, c_path=None
     model = FCN8(n_class, mode)
     model = nn.DataParallel(model)
     model = model.cuda()
-    if pre_path != './saved_models/':
+    if pre_path != '/home/azureuser/cloudfiles/code/Users/davidfelipemr/FCtL/saved_models/':
         print('prepareing pre model...')
         # load fixed basic global branch
         partial = torch.load(pre_path)
@@ -181,7 +182,7 @@ def create_model_load_weights(n_class, pre_path=None, glo_path=None, c_path=None
         c_fixed = MiniFCN8(n_class)
         c_fixed = nn.DataParallel(c_fixed)
         c_fixed = c_fixed.cuda()
-        if c_path != './saved_models/':
+        if c_path != '/home/azureuser/cloudfiles/code/Users/davidfelipemr/FCtL/saved_models/':
             partial = torch.load(c_path)
             state = c_fixed.state_dict()
             pretrained_dict = {k: v for k, v in partial.items() if k in state}
@@ -195,7 +196,7 @@ def create_model_load_weights(n_class, pre_path=None, glo_path=None, c_path=None
         global_fixed = FCN8(n_class, 0)
         global_fixed = nn.DataParallel(global_fixed)
         global_fixed = global_fixed.cuda()
-        if glo_path != './saved_models/':
+        if glo_path != '/home/azureuser/cloudfiles/code/Users/davidfelipemr/FCtL/saved_models/':
             partial = torch.load(glo_path)
             state = global_fixed.state_dict()
             pretrained_dict = {k: v for k, v in partial.items() if k in state}
@@ -328,7 +329,7 @@ class Evaluator(object):
             # 1 2 3 4                                
             images = [ image.copy() for image in images ]
             scores = [ np.zeros((1, self.n_class, images[i].size[1], images[i].size[0])) for i in range(len(images)) ]
-            for flip in self.flip_range:
+            for flip in tqdm(self.flip_range):
                 if flip:
                     # we already rotated images for 270'
                     for b in range(len(images)):
