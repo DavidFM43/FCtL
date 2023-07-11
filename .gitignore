@@ -165,4 +165,5 @@ data/train/
 data/crossvali/
 data/raw_data/
 saved_models/
+runs/
 prediction/

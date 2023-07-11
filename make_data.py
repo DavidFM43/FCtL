@@ -28,7 +28,7 @@ if __name__ == "__main__":
     raw_data_dir = data_dir / "raw_data"
 
     images_dir = raw_data_dir / "images"
-    masks_dir = raw_data_dir / "raw_masks"  # masks are in rgb format
+    masks_dir = raw_data_dir / "masks"
 
     for split_name in ["train", "crossvali", "test"]:
         with open(data_dir / "splits" / f"{split_name}.txt") as f:

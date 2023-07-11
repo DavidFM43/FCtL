@@ -36,7 +36,7 @@ if not os.path.isdir(model_path): os.mkdir(model_path)
 if not os.path.isdir(log_path): os.mkdir(log_path)
 print("data_path:",data_path , "model_path:",model_path, "log_path",log_path)
 
-task_name = args.task_name
+task_name = "train_mode_1"
 print("task_name:",task_name)
 
 mode = 1 
