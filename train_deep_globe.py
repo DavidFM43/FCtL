@@ -39,9 +39,9 @@ print("data_path:",data_path , "model_path:",model_path, "log_path",log_path)
 task_name = args.task_name
 print("task_name:",task_name)
 
-mode = 4 # args.mode
-train = args.train
-val = args.val
+mode = 1 
+train = True 
+val = True 
 print("mode:",mode, "train:",train, "val:",val)
 
 ###################################
@@ -72,9 +72,9 @@ sub_batch_size = args.sub_batch_size
 ###################################
 print("creating models......")
 
-pre_path = os.path.join(model_path, "all.epoch.pth") # args.pre_path)
-c_path = os.path.join(model_path, "medium.epoch.pth") # args.c_path)
-glo_path = os.path.join(model_path, "global.epoch.pth") #args.glo_path)
+pre_path = os.path.join(model_path, "")
+c_path = os.path.join(model_path, "")
+glo_path = os.path.join(model_path, "")
 print("pre_path:", pre_path, "c_path:", c_path, "glo_path:", glo_path)
 model, c_fixed, global_fixed = create_model_load_weights(n_class, pre_path, glo_path, c_path, mode)
 
@@ -113,9 +113,10 @@ for epoch in range(start, start + lens):
         train_loss += loss.item()
         score_train = trainer.get_scores()
         tbar.set_description('epoch:%d Train loss: %.3f;   mIoU: %.3f' % (epoch, train_loss / (i_batch + 1),
-np.mean(np.nan_to_num(score_train["iou"][1:]))))
+np.mean(np.nan_to_num(score_train["iou"][:-1]))))
         writer.add_scalar('train_loss', loss, epoch * len(dataloader_train) + i_batch)
-        writer.add_scalar('train_miou', np.mean(np.nan_to_num(score_train["iou"][1:])), epoch * len(dataloader_train) + i_batch)
+        print("Iou:", np.nan_to_num(score_train["iou"]))
+        writer.add_scalar('train_miou', np.mean(np.nan_to_num(score_train["iou"][:-1])), epoch * len(dataloader_train) + i_batch)
     score_train = trainer.get_scores()
     trainer.reset_metrics()
     # torch.cuda.empty_cache()
@@ -135,7 +136,7 @@ np.mean(np.nan_to_num(score_train["iou"][1:]))))
                 predictions = evaluator.eval_test(sample_batched, model, c_fixed, global_fixed)
                 score_val = evaluator.get_scores()
                 # use [1:] since class0 is not considered in deep_globe metric
-                tbar.set_description('mIoU: %.3f' % (np.mean(np.nan_to_num(score_val["iou"])[1:])))
+                tbar.set_description('mIoU: %.3f' % (np.mean(np.nan_to_num(score_val["iou"])[:-1])))
                 images = sample_batched['image']
                 labels = sample_batched['label'] # PIL images
 
@@ -149,9 +150,9 @@ np.mean(np.nan_to_num(score_train["iou"][1:]))))
             score_val = evaluator.get_scores()
             evaluator.reset_metrics()
 
-            if np.mean(np.nan_to_num(score_val["iou"][1:])) > best_pred: best_pred = np.mean(np.nan_to_num(score_val["iou"][1:]))
+            if np.mean(np.nan_to_num(score_val["iou"][:-1])) > best_pred: best_pred = np.mean(np.nan_to_num(score_val["iou"][:-1]))
             log = ""
-            log = log + 'epoch [{}/{}] IoU: train = {:.4f}, val = {:.4f}'.format(epoch+1, num_epochs, np.mean(np.nan_to_num(score_train["iou"][1:])), np.mean(np.nan_to_num(score_val["iou"][1:]))) + "\n"
+            log = log + 'epoch [{}/{}] IoU: train = {:.4f}, val = {:.4f}'.format(epoch+1, num_epochs, np.mean(np.nan_to_num(score_train["iou"][:-1])), np.mean(np.nan_to_num(score_val["iou"][:-1]))) + "\n"
             log = log + "train: " + str(score_train["iou"]) + "\n"
             log = log + "val:" + str(score_val["iou"]) + "\n"
             log += "================================\n"
@@ -159,7 +160,7 @@ np.mean(np.nan_to_num(score_train["iou"][1:]))))
 
             f_log.write(log)
             f_log.flush()
-            writer.add_scalars('IoU', {'train iou': np.mean(np.nan_to_num(score_train["iou"][1:])), 'validation iou': np.mean(np.nan_to_num(score_val["iou"][1:]))}, epoch)
+            writer.add_scalars('IoU', {'train iou': np.mean(np.nan_to_num(score_train["iou"][:-1])), 'validation iou': np.mean(np.nan_to_num(score_val["iou"][:-1]))}, epoch)
 if val: f_log.close()
 
 if not train:
