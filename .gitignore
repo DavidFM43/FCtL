@@ -160,6 +160,9 @@ cython_debug/
 #.idea/
 
 
-data/
+data/test/
+data/train/
+data/crossvali/
+data/raw_data/
 saved_models/
 prediction/
