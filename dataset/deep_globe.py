@@ -15,7 +15,7 @@ def is_image_file(filename):
 
 def classToRGB(dataset, label):
     l, w = label.shape[0], label.shape[1]
-    colmap = np.zeros(shape=(l, w, 3)).astype(np.float32)
+    colmap = np.zeros(shape=(l, w, 3)).astype(np.uint8)
     if dataset == 1:
         indices = np.where(label == 1)
         colmap[indices[0].tolist(), indices[1].tolist(), :] = [0, 255, 255]
@@ -33,10 +33,7 @@ def classToRGB(dataset, label):
         colmap[indices[0].tolist(), indices[1].tolist(), :] = [0, 0, 0]
     else:
         pass
-    transform = ToTensor();
-    #     plt.imshow(colmap)
-    #     plt.show()
-    return transform(colmap)
+    return colmap
 
 
 def class_to_target(inputs, numClass):
