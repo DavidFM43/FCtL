@@ -39,7 +39,7 @@ print("data_path:",data_path , "model_path:",model_path, "log_path",log_path)
 task_name = "train_mode_1"
 print("task_name:",task_name)
 
-mode = 1 
+mode = 0 
 train = True 
 val = True 
 print("mode:",mode, "train:",train, "val:",val)
