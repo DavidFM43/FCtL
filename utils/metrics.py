@@ -10,7 +10,7 @@ class ConfusionMatrix(object):
         self.confusion_matrix = np.zeros((n_classes, n_classes))
         
     def _fast_hist(self, label_true, label_pred, n_class):
-        mask = (label_true >= 0) & (label_true < n_class)
+        mask = (label_true >= 0) & (label_true < 6)
         hist = np.bincount(n_class * label_true[mask].astype(int) + label_pred[mask], minlength=n_class**2).reshape(n_class, n_class)
         return hist
 
@@ -26,7 +26,9 @@ class ConfusionMatrix(object):
         intersect = np.diag(hist)
         union = hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist)
         iou = intersect / union
-        mean_iou = np.mean(np.nan_to_num(iou[1:]))
+        # print("intersection them:", intersect.astype(int))
+        # print("union them:", union.astype(int))
+        mean_iou = np.mean(np.nan_to_num(iou[:-1]))
 
         return {
                 'iou': iou, 

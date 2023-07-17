@@ -3,7 +3,7 @@
 
 from __future__ import absolute_import, division, print_function
 
-import cv2
+# import cv2
 import numpy as np
 import torch
 import torch.nn as nn
@@ -14,8 +14,19 @@ from utils.metrics import ConfusionMatrix
 from PIL import Image, ImageOps
 from models.fcn import FCN8, MiniFCN8
 from tqdm import tqdm
+from utils.iou import IouMetric
 
 torch.backends.cudnn.deterministic = True
+
+int2str = {
+    0: "urban_land",
+    1: "agriculture_land",
+    2: "rangeland",
+    3: "forest_land",
+    4: "water",
+    5: "barren_land",
+    6: "unknown",
+}
 
 transformer = transforms.Compose([
     transforms.ToTensor(),
@@ -162,9 +173,9 @@ def collate_test(batch):
 def create_model_load_weights(n_class, pre_path=None, glo_path=None, c_path=None, mode=1):
 
     model = FCN8(n_class, mode)
-    model = nn.DataParallel(model)
+    # model = nn.DataParallel(model)
     model = model.cuda()
-    if pre_path != '/home/azureuser/cloudfiles/code/Users/davidfelipemr/FCtL/saved_models/':
+    if pre_path != 'saved_models/':
         print('prepareing pre model...')
         # load fixed basic global branch
         partial = torch.load(pre_path)
@@ -182,7 +193,7 @@ def create_model_load_weights(n_class, pre_path=None, glo_path=None, c_path=None
         c_fixed = MiniFCN8(n_class)
         c_fixed = nn.DataParallel(c_fixed)
         c_fixed = c_fixed.cuda()
-        if c_path != '/home/azureuser/cloudfiles/code/Users/davidfelipemr/FCtL/saved_models/':
+        if c_path != 'saved_models/':
             partial = torch.load(c_path)
             state = c_fixed.state_dict()
             pretrained_dict = {k: v for k, v in partial.items() if k in state}
@@ -209,7 +220,7 @@ def create_model_load_weights(n_class, pre_path=None, glo_path=None, c_path=None
 
 def get_optimizer(model, learning_rate=2e-5):
     optimizer = torch.optim.Adam([
-    {'params': model.module.parameters(), 'lr': learning_rate},
+    {'params': model.parameters(), 'lr': learning_rate},
     ], weight_decay=5e-4)
     return optimizer
 
@@ -218,6 +229,7 @@ class Trainer(object):
         self.criterion = criterion
         self.optimizer = optimizer
         self.metrics = ConfusionMatrix(n_class)
+        self.iou = IouMetric(num_classes=n_class, int2str=int2str, ignore_index=6, prefix="train")
         self.n_class = n_class
         self.size_p = size_p
         self.size_g = size_g
@@ -226,13 +238,15 @@ class Trainer(object):
         self.context = context
         
     def set_train(self, model):
-        model.module.train()
+        model.train()
     def get_scores(self):
         score = self.metrics.get_scores()
-        return score
+        iou = self.iou.compute()
+        return score, iou
 
     def reset_metrics(self):
         self.metrics.reset()
+        self.iou.reset()
 
     def train(self, sample, model, c_fixed, global_fixed):
         images, labels = sample['image'], sample['label'] # PIL images
@@ -285,11 +299,14 @@ class Trainer(object):
         # patch predictions ###########################
         if self.mode == 0:
             predictions = outputs_global.detach().argmax(1)
-            predictions = transforms.functional.resize(predictions, labels_npy.shape[-2:]).cpu().numpy()
+            predictions = transforms.functional.resize(predictions, labels_npy.shape[-2:], antialias=True).cpu().numpy()
         else:
             scores = np.array(patch2global(predicted_patches, self.n_class, sizes, coordinates, self.size_p)) # merge softmax scores from patches (overlaps)
             predictions = scores.argmax(1) # b, h, w
+            
         self.metrics.update(labels_npy, predictions)
+        self.iou.process(torch.from_numpy(predictions), torch.from_numpy(labels_npy))
+        # print("confussion matrix", self.metrics.confusion_matrix.astype(int))
         return loss
 
 
@@ -324,13 +341,13 @@ class Evaluator(object):
             if self.val:
                 labels = sample['label'] # PIL images
                 labels_npy = masks_transform(labels, numpy=True)
-            images_global = resize(images, self.size_g)
+            images_glb = resize(images, self.size_g)
             if self.mode == 0:
-                images_glb = resize(images, self.size_g) # list of resized PIL images
                 images_glb = images_transform(images_glb)        
                 outputs_global = model.forward(images_glb)
+                
                 predictions = outputs_global.detach().argmax(1)
-                predictions = transforms.functional.resize(predictions, labels_npy.shape[-2:]).cpu().numpy()
+                predictions = transforms.functional.resize(predictions, labels_npy.shape[-2:], antialias=True).cpu().numpy()
             else:
                 # 1 2 3 4                                
                 images = [ image.copy() for image in images ]
@@ -389,6 +406,7 @@ class Evaluator(object):
                 predictions = [ score.argmax(1)[0] for score in scores ]
             if self.val:
                 self.metrics.update(labels_npy, predictions)
+                self.iou.process(torch.from_numpy(predictions), torch.from_numpy(labels_npy))
             ###################################################
             return predictions
 

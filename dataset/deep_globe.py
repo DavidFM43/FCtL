@@ -5,7 +5,6 @@ from PIL import Image, ImageFile
 import random
 from torchvision.transforms import ToTensor
 from torchvision import transforms
-import cv2
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -47,13 +46,13 @@ def class_to_target(inputs, numClass):
     return target.transpose(0, 3, 1, 2)
 
 
-def label_bluring(inputs):
-    batchSize, numClass, height, width = inputs.shape
-    outputs = np.ones((batchSize, numClass, height, width), dtype=np.float)
-    for batchCnt in range(batchSize):
-        for index in range(numClass):
-            outputs[batchCnt, index, ...] = cv2.GaussianBlur(inputs[batchCnt, index, ...].astype(np.float), (7, 7), 0)
-    return outputs
+# def label_bluring(inputs):
+#     batchSize, numClass, height, width = inputs.shape
+#     outputs = np.ones((batchSize, numClass, height, width), dtype=np.float)
+#     for batchCnt in range(batchSize):
+#         for index in range(numClass):
+#             outputs[batchCnt, index, ...] = cv2.GaussianBlur(inputs[batchCnt, index, ...].astype(np.float), (7, 7), 0)
+#     return outputs
 
 
 class DeepGlobe(data.Dataset):
