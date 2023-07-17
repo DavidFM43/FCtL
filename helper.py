@@ -314,6 +314,7 @@ class Evaluator(object):
     def __init__(self, n_class, size_p, size_g, sub_batch_size=6, mode=1, val=True, dataset=1 , context=3):
         self.metrics = ConfusionMatrix(n_class)
         self.n_class = n_class
+        self.iou = IouMetric(num_classes=n_class, int2str=int2str, ignore_index=6, prefix="val")
         self.size_p = size_p
         self.size_g = size_g
         self.sub_batch_size = sub_batch_size
@@ -330,10 +331,12 @@ class Evaluator(object):
     
     def get_scores(self):
         score = self.metrics.get_scores()
-        return score
+        iou = self.iou.compute()
+        return score, iou
 
     def reset_metrics(self):
         self.metrics.reset()
+        self.iou.reset()
 
     def eval_test(self, sample, model, c_fixed, global_fixed):
         with torch.no_grad():

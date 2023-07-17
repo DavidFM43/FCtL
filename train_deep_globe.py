@@ -16,7 +16,9 @@ from utils.lr_scheduler import LR_Scheduler
 from helper import create_model_load_weights, get_optimizer, Trainer, Evaluator, collate, collate_test
 from option import Options
 import wandb
-wandb_key = ""
+from kaggle_secrets import UserSecretsClient
+wandb_key = UserSecretsClient().get_secret("wandb_key")
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -64,9 +66,9 @@ dataset_test = DeepGlobe(dataset, os.path.join(data_path, "test"), ids_test, lab
 dataloader_test = torch.utils.data.DataLoader(dataset=dataset_test, batch_size=batch_size, num_workers=num_worker, collate_fn=collate_test, shuffle=False, pin_memory=True)
 dataset_val = DeepGlobe(dataset, os.path.join(data_path, "crossvali"), ids_val, label=True)
 dataloader_val = torch.utils.data.DataLoader(dataset=dataset_val, batch_size=batch_size, num_workers=num_worker, collate_fn=collate, shuffle=False, pin_memory=True)
-print('train_len:',len(ids_train)) 
-print('test_len:',len(ids_test)) 
-print('val_len:',len(ids_val))  
+print('train_len:',len(dataset_train)) 
+print('test_len:',len(dataset_test)) 
+print('val_len:',len(dataset_val))  
 
 ##### sizes are (w, h) ##############################
 size_p = (args.size_p, args.size_p) 
@@ -94,16 +96,16 @@ scheduler = LR_Scheduler('poly', learning_rate, num_epochs, len(dataloader_train
 criterion1 = FocalLoss(gamma=3)
 criterion = lambda x,y: criterion1(x, y)
 
-# if val:
+if val:
 #     writer = SummaryWriter(log_dir=log_path + task_name) 
 #     f_log = open(log_path + task_name + ".log", 'w') 
-#     wandb.login(key=wandb_key)
-#     wandb.init(
-#         tags=["Unet"],
-#         entity="landcover-classification",
-#         notes="unique-wood-117 with more epochs",
-#         project="ml-experiments",
-#     )
+    wandb.login(key=wandb_key)
+    wandb.init(
+        tags=["FCtL"],
+        entity="landcover-classification",
+        notes="",
+        project="ml-experiments",
+    )
 
 trainer = Trainer(criterion, optimizer, n_class, size_p, size_g, sub_batch_size, mode, dataset, context)
 evaluator = Evaluator(n_class, size_p, size_g, sub_batch_size, mode, train, dataset, context)
@@ -123,17 +125,17 @@ for epoch in range(start, start + lens):
         loss = trainer.train(sample_batched, model, c_fixed, global_fixed)
         train_loss += loss.item()
         # score_train, iou = trainer.get_scores()
-        ## wandb
-        # wandb.log({"train/loss": loss.item()})
+        # wandb
+        wandb.log({"train/loss": loss.item()})
         
     score_train, iou = trainer.get_scores()
     trainer.reset_metrics()
-    print("Iou Metrics mine")
-    pprint(iou)
-    print("Iou Metrics them")
-    pprint(score_train)
-    ## wandb
-    # wandb.log({"epoch": epoch, "train/mean_loss": train_loss / (i_batch + 1), **iou})
+    # print("Iou Metrics mine")
+    # pprint(iou)
+    # print("Iou Metrics them")
+    # pprint(score_train)
+    # wandb
+    wandb.log({"epoch": epoch, "train/mean_loss": train_loss / (i_batch + 1), **iou})
     
     cnt = 5 
     # if epoch >= 34:
@@ -141,7 +143,7 @@ for epoch in range(start, start + lens):
     if (epoch+1) % cnt == 0:
         torch.save(model.state_dict(), model_path + task_name + ".epoch" + str(epoch) + ".pth")
 
-    if (epoch) % 5 == 0:
+    if (epoch) % 1 == 0:
         with torch.no_grad():
             print("evaluation...")
             model.eval()
@@ -163,12 +165,12 @@ for epoch in range(start, start + lens):
 
             score_val, iou = evaluator.get_scores()
             evaluator.reset_metrics()
-            print("Iou Metrics mine")
-            pprint(iou)
-            print("Iou Metrics them")
-            pprint(score_val)
-            ## wandb
-            # wandb.log({"epoch": epoch, "train/mean_loss": train_loss / (i_batch + 1), **iou})
+            # print("Iou Metrics mine")
+            # pprint(iou)
+            # print("Iou Metrics them")
+            # pprint(score_val)
+            # wandb
+            wandb.log({"epoch": epoch, **iou})
 
 #             if np.mean(np.nan_to_num(score_val["iou"][:-1])) > best_pred: best_pred = np.mean(np.nan_to_num(score_val["iou"][:-1]))
 #             log = ""
@@ -198,4 +200,3 @@ for epoch in range(start, start + lens):
 #                 transforms.functional.to_pil_image(classToRGB(dataset, predictions[i])).save(
 #                     prediction_path + sample_batched["id"][i] + "_mask.png"
 #                 )
-    break
